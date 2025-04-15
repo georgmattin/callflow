@@ -14,6 +14,27 @@ import { processContacts } from "@/lib/utils"
 import CallbackList from "@/components/calling/callback-list"
 import { createClientSupabaseClient } from "@/lib/supabase"
 
+/*
+ * CallFlow Application - Calling Management
+ * 
+ * This component handles the calling workflow for contacting lists of people.
+ * Key features:
+ * 
+ * 1. Database-based contact status tracking:
+ *    - Each contact's call status is tracked in the database via 'last_call_date' field
+ *    - Contacts without a last_call_date are prioritized in the calling queue
+ * 
+ * 2. Contact ordering:
+ *    - Uncalled contacts (those without last_call_date) appear first in the list
+ *    - When all contacts are called, the system notifies the user
+ * 
+ * 3. Caller workflow:
+ *    - Select a contact list
+ *    - System loads contacts with uncalled ones first
+ *    - After each call, results are saved to the database
+ *    - The next uncalled contact is automatically selected
+ */
+
 export default function CallingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -80,16 +101,25 @@ export default function CallingPage() {
                   
                   return {
                     ...contact,
+                    lastCallDate: contact.last_call_date || null,
                     callHistory: historyData || []
                   }
                 })
               )
               
+              // Process contacts and sort - uncalled contacts first
+              const processedContacts = processContacts(contactsWithHistory || []).sort((a, b) => {
+                // Put uncalled contacts first
+                if (!a.lastCallDate && b.lastCallDate) return -1
+                if (a.lastCallDate && !b.lastCallDate) return 1
+                return 0
+              })
+              
               return {
                 id: list.id,
                 name: list.name,
                 createdAt: list.created_at,
-                contacts: processContacts(contactsWithHistory || [])
+                contacts: processedContacts
               }
             })
           )
@@ -169,8 +199,6 @@ export default function CallingPage() {
         })
       } finally {
         setIsLoading(false)
-        // Clear the stored list ID after using it
-        localStorage.removeItem("selectedListId")
       }
     }
     
@@ -206,14 +234,121 @@ export default function CallingPage() {
     }
   }, [contactLists])
 
-  const handleStartCalling = () => {
+  // Add a refresh contacts function to get the latest data from the database
+  const refreshContactList = async (listId: string) => {
+    if (!listId) return
+    
+    try {
+      setIsLoading(true)
+      const supabase = createClientSupabaseClient()
+      
+      // Fetch contacts for the list
+      const { data: contactsData, error: contactsError } = await supabase
+        .from("contacts")
+        .select("*")
+        .eq("list_id", listId)
+      
+      if (contactsError) throw contactsError
+      
+      // Fetch call history for each contact
+      const contactsWithHistory = await Promise.all(
+        (contactsData || []).map(async (contact) => {
+          const { data: historyData, error: historyError } = await supabase
+            .from("call_history")
+            .select("*")
+            .eq("contact_id", contact.id)
+            .order("date", { ascending: false })
+          
+          if (historyError) throw historyError
+          
+          return {
+            ...contact,
+            lastCallDate: contact.last_call_date || null,
+            callHistory: historyData || []
+          }
+        })
+      )
+      
+      // Process contacts and sort - uncalled contacts first
+      const processedContacts = processContacts(contactsWithHistory || []).sort((a, b) => {
+        // Put uncalled contacts first
+        if (!a.lastCallDate && b.lastCallDate) return -1
+        if (a.lastCallDate && !b.lastCallDate) return 1
+        return 0
+      })
+      
+      // Update the contact list in state
+      setContactLists(prev => 
+        prev.map(list => 
+          list.id === listId 
+            ? { ...list, contacts: processedContacts } 
+            : list
+        )
+      )
+      
+      // If all contacts in this list have been called, show a message
+      const allCalled = processedContacts.every(contact => contact.lastCallDate)
+      if (allCalled) {
+        toast({
+          title: "Kõik kontaktid on helistatud",
+          description: "Kõik nimekirja kontaktid on helistatud",
+        })
+      }
+      
+    } catch (error) {
+      console.error("Error refreshing contact list:", error)
+      toast({
+        title: "Viga",
+        description: "Kontaktide värskendamisel tekkis viga",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleStartCalling = async () => {
     if (callSource === "contacts") {
       if (selectedListId && contacts.length > 0) {
+        // Refresh the contact list to get the latest status from the database
+        await refreshContactList(selectedListId)
+        
+        // Find the first uncalled contact index
+        let startIndex = 0
+        
+        // Get the refreshed contacts
+        const refreshedContacts = contactLists.find(list => list.id === selectedListId)?.contacts || []
+        
+        if (!singleContactMode) {
+          // Check if there are any uncalled contacts (based on lastCallDate which comes from database)
+          const hasUncalledContacts = refreshedContacts.some(contact => !contact.lastCallDate)
+          
+          if (hasUncalledContacts) {
+            // Find the first uncalled contact
+            for (let i = 0; i < refreshedContacts.length; i++) {
+              if (!refreshedContacts[i].lastCallDate) {
+                startIndex = i
+                break
+              }
+            }
+            
+            toast({
+              title: "Helistamine alustatud",
+              description: `Helistatakse kontaktidele, kellele pole veel helistatud`,
+            })
+          } else {
+            // If all contacts have been called, start from the beginning
+            startIndex = 0
+            toast({
+              title: "Kõik kontaktid on juba helistatud",
+              description: "Alustame nimekirja algusest",
+            })
+          }
+          
+          setCurrentContactIndex(startIndex)
+        }
+        
         setIsSelectionMode(false)
-        toast({
-          title: "Helistamine alustatud",
-          description: `Helistatakse nimekirja "${selectedList?.name}" kontaktidele`,
-        })
       } else {
         toast({
           title: "Viga",
@@ -494,7 +629,27 @@ export default function CallingPage() {
 
       // Move to the next contact or end calling session
       if (currentContactIndex < contacts.length - 1) {
-        setCurrentContactIndex(currentContactIndex + 1)
+        // After saving, refresh the contact list to get the latest status from the database
+        await refreshContactList(selectedListId)
+        
+        // Find the next uncalled contact based on the refreshed data
+        const refreshedContacts = contactLists.find(list => list.id === selectedListId)?.contacts || []
+        
+        // Find the next uncalled contact
+        let nextIndex = currentContactIndex + 1
+        
+        const findNextUncalledIndex = (startIdx: number) => {
+          for (let i = startIdx; i < refreshedContacts.length; i++) {
+            if (!refreshedContacts[i].lastCallDate) {
+              return i
+            }
+          }
+          // If all remaining contacts have been called, just use the next index
+          return startIdx
+        }
+        
+        nextIndex = findNextUncalledIndex(nextIndex)
+        setCurrentContactIndex(nextIndex)
 
         toast({
           description: "Liigutakse järgmise kontakti juurde",
@@ -520,6 +675,9 @@ export default function CallingPage() {
           // Continue with the first requeued contact
           setCurrentContactIndex(contacts.length)
         } else {
+          // After all contacts are called, do a final refresh to ensure database is up to date
+          await refreshContactList(selectedListId)
+          
           // End calling session if no requeued contacts
           toast({
             title: "Helistamine lõpetatud",
@@ -563,6 +721,18 @@ export default function CallingPage() {
     router.push("/")
   }
 
+  // Function to finish calling session and clear saved state
+  const handleFinishCallingSession = () => {
+    // Show a success message
+    toast({
+      title: "Helistamine lõpetatud",
+      description: "Helistamissessioon on edukalt lõpetatud",
+    })
+    
+    // Navigate back to home
+    router.push("/")
+  }
+
   const handleUpdateContact = async (updatedContact: Contact) => {
     if (!selectedListId) return
 
@@ -579,6 +749,7 @@ export default function CallingPage() {
         registrikood: updatedContact.registrikood,
         notes: updatedContact.notes,
         priority: updatedContact.priority,
+        lisainfo: updatedContact.lisainfo || null,
         updated_at: new Date().toISOString()
       }
       
@@ -636,6 +807,13 @@ export default function CallingPage() {
   // Get the current contact for calling view
   const currentContact = singleContactMode && singleContact ? singleContact : contacts[currentContactIndex] || null
 
+  // Update the setSelectedListId function to also update localStorage for persistent list selection
+  const handleSelectList = (listId: string) => {
+    setSelectedListId(listId)
+    // Save the selected list ID in localStorage so it persists between sessions
+    localStorage.setItem("selectedListId", listId)
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 max-w-7xl">
@@ -688,7 +866,7 @@ export default function CallingPage() {
                   <ContactListSelector
                     contactLists={contactLists}
                     selectedListId={selectedListId}
-                    onSelectList={setSelectedListId}
+                    onSelectList={handleSelectList}
                     onRenameList={(listId, newName) => {
                       const updatedLists = contactLists.map((list) =>
                         list.id === listId ? { ...list, name: newName } : list,
@@ -760,22 +938,25 @@ export default function CallingPage() {
           </CardContent>
         </Card>
       ) : (
-        currentContact && (
-          <CallingView
-            contact={currentContact}
-            scripts={scripts}
-            emailTemplates={emailTemplates}
-            onSaveAndNext={handleSaveAndNext}
-            onExit={handleExitCallingMode}
-            onUpdateContact={handleUpdateContact}
-            progress={
-              singleContactMode
-                ? "Üksikkõne"
-                : `${currentContactIndex + 1}/${contacts.length + requeuedContacts.length}`
-            }
-            singleContactMode={singleContactMode}
-          />
-        )
+        <div className="mt-8">
+          {currentContact && (
+            <CallingView
+              contact={currentContact}
+              scripts={scripts}
+              emailTemplates={emailTemplates}
+              onSaveAndNext={handleSaveAndNext}
+              onExit={handleExitCallingMode}
+              onFinish={handleFinishCallingSession}
+              onUpdateContact={handleUpdateContact}
+              progress={
+                singleContactMode
+                  ? "Üksikkõne"
+                  : `${currentContactIndex + 1}/${contacts.length + requeuedContacts.length}`
+              }
+              singleContactMode={singleContactMode}
+            />
+          )}
+        </div>
       )}
     </div>
   )

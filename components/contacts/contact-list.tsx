@@ -2,7 +2,7 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Globe, Phone, Calendar, Clock, Mail, Trash2, MoreVertical, Smartphone, Flag } from "lucide-react"
+import { Globe, Phone, Calendar, Clock, Mail, Trash2, MoreVertical, Smartphone, Flag, PhoneCall } from "lucide-react"
 import type { Contact } from "@/lib/types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,10 @@ interface ContactListProps {
   contacts: Contact[]
   onContactClick: (contactId: string) => void
   onDeleteContact?: (contactId: string) => void
+  onCallContact?: (contactId: string) => void
 }
 
-export default function ContactList({ contacts, onContactClick, onDeleteContact }: ContactListProps) {
+export default function ContactList({ contacts, onContactClick, onDeleteContact, onCallContact }: ContactListProps) {
   const [activeRowId, setActiveRowId] = useState<string | null>(null)
 
   const getStatusColor = (status: string) => {
@@ -81,11 +82,13 @@ export default function ContactList({ contacts, onContactClick, onDeleteContact 
   }
 
   const getInitials = (name: string) => {
+    if (!name) return "??"
     return name
       .split(" ")
       .map((n) => n[0])
       .join("")
       .toUpperCase()
+      .slice(0, 2)
   }
 
   // Käsitle kustutamist ilma et klikk läbi tablei rea läheks
@@ -95,6 +98,14 @@ export default function ContactList({ contacts, onContactClick, onDeleteContact 
       if (window.confirm("Kas oled kindel, et soovid selle kontakti kustutada?")) {
         onDeleteContact(contactId)
       }
+    }
+  }
+
+  // Handle call without triggering row click
+  const handleCall = (e: React.MouseEvent, contactId: string) => {
+    e.stopPropagation()
+    if (onCallContact) {
+      onCallContact(contactId)
     }
   }
 
@@ -201,7 +212,7 @@ export default function ContactList({ contacts, onContactClick, onDeleteContact 
                       "-"
                     )}
                   </TableCell>
-                  {onDeleteContact && (
+                  {(onDeleteContact || onCallContact) && (
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -210,13 +221,24 @@ export default function ContactList({ contacts, onContactClick, onDeleteContact 
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
-                            className="text-red-600 cursor-pointer"
-                            onClick={(e) => handleDelete(e, contact.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Kustuta
-                          </DropdownMenuItem>
+                          {onCallContact && (
+                            <DropdownMenuItem 
+                              className="text-green-600 cursor-pointer"
+                              onClick={(e) => handleCall(e, contact.id)}
+                            >
+                              <PhoneCall className="h-4 w-4 mr-2" />
+                              Helista uuesti
+                            </DropdownMenuItem>
+                          )}
+                          {onDeleteContact && (
+                            <DropdownMenuItem 
+                              className="text-red-600 cursor-pointer"
+                              onClick={(e) => handleDelete(e, contact.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Kustuta
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

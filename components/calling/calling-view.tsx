@@ -27,6 +27,7 @@ import {
   PlayCircle,
   PauseCircle,
   Search,
+  ArrowLeft,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import RichTextEditor from "@/components/rich-text-editor"
@@ -53,6 +54,7 @@ interface CallingViewProps {
     callbackReason?: string,
   ) => void
   onExit: () => void
+  onFinish?: () => void
   onUpdateContact: (updatedContact: Contact) => void
   progress: string
   singleContactMode?: boolean
@@ -64,6 +66,7 @@ export default function CallingView({
   emailTemplates,
   onSaveAndNext,
   onExit,
+  onFinish,
   onUpdateContact,
   progress,
   singleContactMode = false,
@@ -770,14 +773,22 @@ export default function CallingView({
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between border-t pt-4">
-              <Button variant="outline" onClick={onExit}>
-                <X className="h-4 w-4 mr-2" />
-                Lõpeta helistamine
-              </Button>
-              <Button onClick={handleSaveAndNext} className="bg-primary hover:bg-primary/90">
-                {singleContactMode ? "Salvesta" : "Salvesta & Järgmine"}
-                {!singleContactMode && <ArrowRight className="h-4 w-4 ml-2" />}
+            <CardFooter className="flex justify-between space-x-4 pt-4 border-t">
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm" onClick={onExit}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Välju
+                </Button>
+                {onFinish && (
+                  <Button variant="destructive" size="sm" onClick={onFinish}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Lõpeta helistamine
+                  </Button>
+                )}
+              </div>
+              <Button onClick={handleSaveAndNext}>
+                <ArrowRight className="h-4 w-4 ml-2 rotate-90" />
+                Salvesta ja edasi
               </Button>
             </CardFooter>
           </Card>

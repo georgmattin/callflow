@@ -341,6 +341,7 @@ export default function ContactsPage() {
         website: updatedContact.website,
         registrikood: updatedContact.registrikood,
         priority: updatedContact.priority,
+        lisainfo: updatedContact.lisainfo || null,
         updated_at: new Date().toISOString()
       }
       
@@ -515,6 +516,14 @@ export default function ContactsPage() {
     router.push("/calling")
   }
 
+  // Function to start calling a specific contact
+  const handleCallContact = (contactId: string) => {
+    // Redirect to the calling page with contact ID and list ID params
+    if (selectedListId) {
+      router.push(`/calling?contactId=${contactId}&listId=${selectedListId}`)
+    }
+  }
+
   const handleDeleteContact = async (contactId: string) => {
     if (!selectedListId) return
 
@@ -642,7 +651,8 @@ export default function ContactsPage() {
                   </div>
                   <ContactList 
                     contacts={filteredContacts} 
-                    onContactClick={handleContactClick} 
+                    onContactClick={handleContactClick}
+                    onCallContact={handleCallContact} 
                     onDeleteContact={handleDeleteContact}
                   />
                 </>

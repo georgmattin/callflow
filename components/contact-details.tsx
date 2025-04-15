@@ -12,6 +12,7 @@ import { useState } from "react"
 import type { Contact } from "@/lib/types"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface ContactDetailsProps {
   contact: Contact
@@ -347,6 +348,261 @@ export default function ContactDetails({ contact, onClose, onUpdateContact }: Co
                       </Badge>
                     </div>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Additional Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Lisainfo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="social-media" 
+                      checked={editedContact.lisainfo?.uses_social_media || false}
+                      onCheckedChange={(checked) => 
+                        setEditedContact({
+                          ...editedContact,
+                          lisainfo: {
+                            ...editedContact.lisainfo,
+                            uses_social_media: !!checked,
+                            // Reset related fields if unchecked
+                            ...(checked === false && {
+                              social_media_account: undefined,
+                              advertises_on_social_media: false
+                            })
+                          }
+                        })
+                      }
+                    />
+                    <Label htmlFor="social-media">Sotsiaalmeediat kasutavad?</Label>
+                  </div>
+
+                  {editedContact.lisainfo?.uses_social_media && (
+                    <div className="ml-6 space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="social-media-account">Sotsiaalmeedia konto aadress</Label>
+                        <Input
+                          id="social-media-account"
+                          value={editedContact.lisainfo?.social_media_account || ""}
+                          onChange={(e) => 
+                            setEditedContact({
+                              ...editedContact,
+                              lisainfo: {
+                                ...editedContact.lisainfo,
+                                social_media_account: e.target.value
+                              }
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="social-media-ads" 
+                          checked={editedContact.lisainfo?.advertises_on_social_media || false}
+                          onCheckedChange={(checked) => 
+                            setEditedContact({
+                              ...editedContact,
+                              lisainfo: {
+                                ...editedContact.lisainfo,
+                                advertises_on_social_media: !!checked
+                              }
+                            })
+                          }
+                        />
+                        <Label htmlFor="social-media-ads">Sotsiaalmeedias reklaamivad?</Label>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="google-adwords" 
+                      checked={editedContact.lisainfo?.uses_google_adwords || false}
+                      onCheckedChange={(checked) => 
+                        setEditedContact({
+                          ...editedContact,
+                          lisainfo: {
+                            ...editedContact.lisainfo,
+                            uses_google_adwords: !!checked
+                          }
+                        })
+                      }
+                    />
+                    <Label htmlFor="google-adwords">Kas kasutavad Google AdWordsi?</Label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="company-age">Ettevõtte vanus (aastates)</Label>
+                    <Input
+                      id="company-age"
+                      type="number"
+                      min="0"
+                      value={editedContact.lisainfo?.company_age || ""}
+                      onChange={(e) => 
+                        setEditedContact({
+                          ...editedContact,
+                          lisainfo: {
+                            ...editedContact.lisainfo,
+                            company_age: e.target.value ? parseInt(e.target.value) : undefined
+                          }
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="google-reviews" 
+                      checked={editedContact.lisainfo?.has_google_reviews || false}
+                      onCheckedChange={(checked) => 
+                        setEditedContact({
+                          ...editedContact,
+                          lisainfo: {
+                            ...editedContact.lisainfo,
+                            has_google_reviews: !!checked,
+                            // Reset review count if unchecked
+                            ...(checked === false && { google_review_count: undefined })
+                          }
+                        })
+                      }
+                    />
+                    <Label htmlFor="google-reviews">Kas Googles on arvustusi?</Label>
+                  </div>
+
+                  {editedContact.lisainfo?.has_google_reviews && (
+                    <div className="ml-6 space-y-2">
+                      <Label htmlFor="google-review-count">Kui palju on arvustusi Googles</Label>
+                      <Input
+                        id="google-review-count"
+                        type="number"
+                        min="0"
+                        value={editedContact.lisainfo?.google_review_count || ""}
+                        onChange={(e) => 
+                          setEditedContact({
+                            ...editedContact,
+                            lisainfo: {
+                              ...editedContact.lisainfo,
+                              google_review_count: e.target.value ? parseInt(e.target.value) : undefined
+                            }
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="multiple-offices" 
+                      checked={editedContact.lisainfo?.has_multiple_offices || false}
+                      onCheckedChange={(checked) => 
+                        setEditedContact({
+                          ...editedContact,
+                          lisainfo: {
+                            ...editedContact.lisainfo,
+                            has_multiple_offices: !!checked,
+                            // Reset office locations if unchecked
+                            ...(checked === false && { office_locations: undefined })
+                          }
+                        })
+                      }
+                    />
+                    <Label htmlFor="multiple-offices">Kas ettevõttel on mitu esindust/kontorit?</Label>
+                  </div>
+
+                  {editedContact.lisainfo?.has_multiple_offices && (
+                    <div className="ml-6 space-y-2">
+                      <Label htmlFor="office-locations">Kus asuvad esindused/kontorid</Label>
+                      <Textarea
+                        id="office-locations"
+                        value={editedContact.lisainfo?.office_locations || ""}
+                        onChange={(e) => 
+                          setEditedContact({
+                            ...editedContact,
+                            lisainfo: {
+                              ...editedContact.lisainfo,
+                              office_locations: e.target.value
+                            }
+                          })
+                        }
+                        rows={3}
+                        className="resize-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(!contact.lisainfo || Object.keys(contact.lisainfo).length === 0) && (
+                    <p className="text-gray-500 text-center py-2">Lisainfo puudub</p>
+                  )}
+                  
+                  {contact.lisainfo?.uses_social_media && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Sotsiaalmeediat kasutavad</p>
+                      <p className="font-medium">Jah</p>
+                      
+                      {contact.lisainfo.social_media_account && (
+                        <div className="mt-1">
+                          <p className="text-sm font-medium text-gray-500">Sotsiaalmeedia konto</p>
+                          <p className="font-medium">{contact.lisainfo.social_media_account}</p>
+                        </div>
+                      )}
+                      
+                      <div className="mt-1">
+                        <p className="text-sm font-medium text-gray-500">Sotsiaalmeedias reklaamivad</p>
+                        <p className="font-medium">{contact.lisainfo.advertises_on_social_media ? "Jah" : "Ei"}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {contact.lisainfo?.uses_google_adwords !== undefined && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Kasutab Google AdWordsi</p>
+                      <p className="font-medium">{contact.lisainfo.uses_google_adwords ? "Jah" : "Ei"}</p>
+                    </div>
+                  )}
+
+                  {contact.lisainfo?.company_age !== undefined && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Ettevõtte vanus</p>
+                      <p className="font-medium">{contact.lisainfo.company_age} aastat</p>
+                    </div>
+                  )}
+
+                  {contact.lisainfo?.has_google_reviews !== undefined && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Googles on arvustusi</p>
+                      <p className="font-medium">{contact.lisainfo.has_google_reviews ? "Jah" : "Ei"}</p>
+                      
+                      {contact.lisainfo.has_google_reviews && contact.lisainfo.google_review_count !== undefined && (
+                        <div className="mt-1">
+                          <p className="text-sm font-medium text-gray-500">Arvustuste arv</p>
+                          <p className="font-medium">{contact.lisainfo.google_review_count}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {contact.lisainfo?.has_multiple_offices !== undefined && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Mitu esindust/kontorit</p>
+                      <p className="font-medium">{contact.lisainfo.has_multiple_offices ? "Jah" : "Ei"}</p>
+                      
+                      {contact.lisainfo.has_multiple_offices && contact.lisainfo.office_locations && (
+                        <div className="mt-1">
+                          <p className="text-sm font-medium text-gray-500">Esinduste/kontorite asukohad</p>
+                          <p className="font-medium whitespace-pre-wrap">{contact.lisainfo.office_locations}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

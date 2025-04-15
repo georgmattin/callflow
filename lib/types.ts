@@ -27,6 +27,17 @@ export interface Contact {
   callbackTime?: string
   callbackReason?: string
   requeued?: boolean
+  lisainfo?: {
+    uses_social_media?: boolean
+    social_media_account?: string
+    advertises_on_social_media?: boolean
+    uses_google_adwords?: boolean
+    company_age?: number
+    has_google_reviews?: boolean
+    google_review_count?: number
+    has_multiple_offices?: boolean
+    office_locations?: string
+  }
 }
 
 export interface ContactList {
